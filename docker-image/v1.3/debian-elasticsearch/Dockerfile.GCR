@@ -1,0 +1,27 @@
+FROM gcr.io/google-containers/fluentd-elasticsearch:v2.4.0
+
+USER root
+WORKDIR /
+env GEM_PATH /var/lib/gems/2.3.0
+env GEM_HOME /var/lib/gems/2.3.0
+env FLUENTD_DISABLE_BUNDLER_INJECTION 1
+env buildDeps "sudo make gcc g++ libc-dev ruby-dev libffi-dev"
+env SUDO_FORCE_REMOVE yes
+
+COPY Gemfile-gcr /Gemfile
+RUN rm -f /Gemfile.lock \
+  && apt-get update \
+  && apt-get upgrade -y \
+  && apt-get install -y --no-install-recommends $buildDeps net-tools libjemalloc1 \
+  && gem install bundler --version 1.16.2 \
+  && bundle config silence_root_warning true \
+  && bundle install \
+  && apt-get purge -y --auto-remove \
+    -o APT::AutoRemove::RecommendsImportant=false \
+    $buildDeps \
+  && rm -rf /var/lib/apt/lists/* \
+  && gem sources --clear-all \
+  && rm -rf /tmp/* /var/tmp/* /usr/lib/ruby/gems/*/cache/*.gem
+
+# See https://packages.debian.org/stretch/amd64/libjemalloc1/filelist
+ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libjemalloc.so.1"
